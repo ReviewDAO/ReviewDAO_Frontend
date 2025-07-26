@@ -10,8 +10,9 @@ import { RewardManager } from './RewardManager'
 import { DAOGovernance } from './DAOGovernance'
 import { AdminPanel } from './AdminPanel'
 import { DataQuery } from './DataQuery'
+import { TestDataViewer } from './TestDataViewer'
 
-type TabType = 'journals' | 'papers' | 'reviewer' | 'reviews' | 'rewards' | 'governance' | 'admin' | 'data'
+type TabType = 'journals' | 'papers' | 'reviewer' | 'reviews' | 'rewards' | 'governance' | 'admin' | 'data' | 'testdata'
 
 
 
@@ -81,7 +82,8 @@ export function ReviewDAO() {
     { id: 'rewards' as TabType, label: '奖励管理', icon: '🎁' },
     { id: 'governance' as TabType, label: 'DAO治理', icon: '🏛️' },
     { id: 'admin' as TabType, label: '管理员面板', icon: '⚙️' },
-    { id: 'data' as TabType, label: '数据查询', icon: '📊' }
+    { id: 'data' as TabType, label: '数据查询', icon: '📊' },
+    { id: 'testdata' as TabType, label: '测试数据', icon: '🧪' }
   ]
 
   return (
@@ -207,6 +209,10 @@ export function ReviewDAO() {
                 address={address}
               />
             )}
+            
+            {activeTab === 'testdata' && (
+              <TestDataViewer />
+            )}
           </div>
 
           {/* Transaction Status */}
@@ -255,6 +261,7 @@ export function ReviewDAO() {
                     {tab.id === 'governance' && 'DAO治理和投票'}
                     {tab.id === 'admin' && '系统管理和配置'}
                     {tab.id === 'data' && '查询和分析数据'}
+                    {tab.id === 'testdata' && '查看EVM测试数据迁移'}
                   </p>
                 </div>
               ))}

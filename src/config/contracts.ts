@@ -31,10 +31,9 @@ export const IPFS_CONFIG = {
 export const CONTRACT_ABIS = {
   JournalManager: [
     'function createJournal(string name, string description, string metadataURI, address owner, uint256 submissionFee, string[] categories, uint8 minReviewerTier, uint256 requiredReviewers) external',
-    'function journals(uint256 id) external view returns (tuple(string name, string description, string metadataURI, address owner, uint256 submissionFee, uint8 status, uint256 createdAt, uint8 minReviewerTier, uint8 requiredReviewers))',
+    'function getJournalInfo(uint256 id) external view returns (tuple(uint256 id, string name, string description, string metadataURI, address owner, uint256 submissionFee, uint256 createdTime, uint8 status, string[] categories, uint256 totalSubmissions, uint256 totalPublished, uint8 minReviewerTier, uint256 requiredReviewers))',
     'function getJournalCount() external view returns (uint256)',
     'function getJournalEditors(uint256 journalId) external view returns (address[] memory)',
-    'function getJournalCategories(uint256 journalId) external view returns (string[] memory)',
     'function addEditor(uint256 journalId, address editor) external',
     'function removeEditor(uint256 journalId, address editor) external',
     'function updateSubmissionFee(uint256 journalId, uint256 newFee) external',
@@ -89,9 +88,10 @@ export const ENUMS = {
     Reject: 4
   },
   ReviewerTier: {
-    Junior: 0,
-    Senior: 1,
-    Expert: 2
+    None: 0,
+    Junior: 1,
+    Senior: 2,
+    Expert: 3
   },
   SubmissionStatus: {
     Submitted: 0,

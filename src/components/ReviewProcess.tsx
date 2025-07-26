@@ -1,37 +1,27 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { createContractService } from '../services/ContractService'
 import { ipfsService } from '../services/IPFSService'
+import { getMigratedTestData, type FrontendSubmission } from '../utils/testDataMigration'
 
 interface ReviewProcessProps {
   address: string
   onTransactionSuccess: (txHash: string) => void
 }
 
-interface Submission {
-  id: string
-  paperId: string
-  journalId: string
-  paperTitle: string
-  journalName: string
-  authors: string[]
-  submissionDate: string
-  status: number
-  assignedReviewers: string[]
-  reviews: Review[]
-  coverLetter: string
-  suggestedReviewers: string[]
-}
+// 使用迁移的数据类型
+type Submission = FrontendSubmission
 
-interface Review {
-  id: string
-  reviewerId: string
-  reviewerName: string
-  decision: number
-  comments: string
-  confidentialComments: string
-  submissionDate: string
-  score: number
-}
+// 审稿意见接口 - 保留用于未来扩展
+// interface Review {
+//   id: string
+//   reviewerId: string
+//   reviewerName: string
+//   decision: number
+//   comments: string
+//   confidentialComments: string
+//   submissionDate: string
+//   score: number
+// }
 
 interface ReviewForm {
   decision: number
@@ -43,9 +33,14 @@ interface ReviewForm {
 export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessProps) {
   const [activeTab, setActiveTab] = useState<'pending' | 'completed' | 'assigned'>('pending')
   const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [dataLoading, setDataLoading] = useState(true)
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null)
   const [showReviewForm, setShowReviewForm] = useState(false)
-  const [loading, setLoading] = useState(false)
+  // const [loading, setLoading] = useState(false) // 暂时注释，后续实现加载状态时使用
+  // const [loadingPaperContent, setLoadingPaperContent] = useState(false) // 暂时注释，后续实现时使用
+  const [isLoading, setIsLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [reviewForm, setReviewForm] = useState<ReviewForm>({
     decision: 0,
     comments: '',
@@ -56,91 +51,59 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
   const contractService = createContractService()
 
   const statusLabels = {
-    0: '待分配审稿人',
-    1: '审稿中',
-    2: '审稿完成',
-    3: '已接收',
-    4: '已拒绝',
-    5: '需要修改'
+    'pending': '待分配审稿人',
+    'under_review': '审稿中',
+    'completed': '审稿完成',
+    'accepted': '已接收',
+    'rejected': '已拒绝',
+    'revision_required': '需要修改'
   }
 
-  const decisionLabels = {
-    0: '接受',
-    1: '小修后接受',
-    2: '大修后重审',
-    3: '拒绝'
-  }
+  // const decisionLabels = {
+  //   0: '接受',
+  //   1: '小修后接受',
+  //   2: '大修后重审',
+  //   3: '拒绝'
+  // }
 
-  const decisionColors = {
-    0: 'bg-green-100 text-green-800',
-    1: 'bg-blue-100 text-blue-800',
-    2: 'bg-yellow-100 text-yellow-800',
-    3: 'bg-red-100 text-red-800'
-  }
+  // const decisionColors = {
+  //   0: 'bg-green-100 text-green-800',
+  //   1: 'bg-blue-100 text-blue-800',
+  //   2: 'bg-yellow-100 text-yellow-800',
+  //   3: 'bg-red-100 text-red-800'
+  // }
 
   const statusColors = {
-    0: 'bg-gray-100 text-gray-800',
-    1: 'bg-blue-100 text-blue-800',
-    2: 'bg-purple-100 text-purple-800',
-    3: 'bg-green-100 text-green-800',
-    4: 'bg-red-100 text-red-800',
-    5: 'bg-yellow-100 text-yellow-800'
+    'pending': 'bg-gray-100 text-gray-800',
+    'under_review': 'bg-blue-100 text-blue-800',
+    'completed': 'bg-purple-100 text-purple-800',
+    'accepted': 'bg-green-100 text-green-800',
+    'rejected': 'bg-red-100 text-red-800',
+    'revision_required': 'bg-yellow-100 text-yellow-800'
   }
 
-  const loadSubmissions = useCallback(async () => {
+  // 从区块链加载真实数据
+  const loadRealSubmissions = useCallback(async () => {
     try {
-      // 这里应该从合约查询投稿信息
-      // 暂时使用模拟数据
-      const mockSubmissions: Submission[] = [
-        {
-          id: '1',
-          paperId: 'paper_1',
-          journalId: 'journal_1',
-          paperTitle: 'Deep Learning Approaches for Blockchain Consensus',
-          journalName: 'Journal of Blockchain Technology',
-          authors: ['Alice Smith', 'Bob Johnson'],
-          submissionDate: '2024-01-15',
-          status: 1, // 审稿中
-          assignedReviewers: [address, '0x456...'],
-          reviews: [],
-          coverLetter: 'This paper presents novel approaches...',
-          suggestedReviewers: ['Dr. Charlie Brown', 'Prof. Diana Wilson']
-        },
-        {
-          id: '2',
-          paperId: 'paper_2',
-          journalId: 'journal_2',
-          paperTitle: 'Quantum Computing Applications in Cryptography',
-          journalName: 'Quantum Research Journal',
-          authors: ['Eve Davis', 'Frank Miller'],
-          submissionDate: '2024-01-10',
-          status: 2, // 审稿完成
-          assignedReviewers: [address, '0x789...'],
-          reviews: [
-            {
-              id: 'review_1',
-              reviewerId: address,
-              reviewerName: 'You',
-              decision: 1, // 小修后接受
-              comments: 'The paper is well-written but needs minor revisions...',
-              confidentialComments: 'The methodology is sound.',
-              submissionDate: '2024-01-20',
-              score: 7
-            }
-          ],
-          coverLetter: 'We propose a new quantum algorithm...',
-          suggestedReviewers: ['Dr. Grace Lee', 'Prof. Henry Kim']
-        }
-      ]
-      setSubmissions(mockSubmissions)
+      setDataLoading(true)
+      const realData = await getMigratedTestData()
+      console.log('从合约加载的投稿数据:', realData.submissions)
+      setSubmissions(realData.submissions)
     } catch (error) {
-      console.error('Error loading submissions:', error)
+      console.error('加载投稿数据失败:', error)
+      setSubmissions([])
+    } finally {
+      setDataLoading(false)
     }
-  }, [address])
+  }, [])
+
+  const loadSubmissions = useCallback(async () => {
+    await loadRealSubmissions()
+  }, [loadRealSubmissions])
 
   const handleAssignSelfAsReviewer = async (submission: Submission) => {
     try {
-      setLoading(true)
+      setIsLoading(true)
       
       await contractService.assignReviewer({
         submissionId: parseInt(submission.id),
@@ -149,13 +112,8 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
       
       alert('成功分配为审稿人！现在您可以开始审稿了。')
       
-      // 更新本地状态
-      const updatedSubmissions = submissions.map(s => 
-        s.id === submission.id 
-          ? { ...s, assignedReviewers: [...s.assignedReviewers, address] }
-          : s
-      )
-      setSubmissions(updatedSubmissions)
+      // 重新加载数据
+      await loadSubmissions()
       
     } catch (error) {
       console.error('Error assigning reviewer:', error)
@@ -170,7 +128,7 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
         alert('分配审稿人失败: ' + (error as Error).message)
       }
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -182,7 +140,8 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
     }
 
     try {
-      setLoading(true)
+      setIsSubmitting(true)
+      setError(null)
 
       // 创建审稿意见元数据
       const reviewMetadata = {
@@ -203,7 +162,7 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
         metadataURI
       )
 
-      onTransactionSuccess(response.txHash)
+      onTransactionSuccess(response.hash)
       setShowReviewForm(false)
       setSelectedSubmission(null)
 
@@ -216,18 +175,18 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
       })
 
       // 重新加载数据
-      loadSubmissions()
+      await loadSubmissions()
     } catch (error) {
       console.error('Error submitting review:', error)
       
       // 提供更友好的错误信息
       if ((error as Error).message.includes('Only assigned reviewers can call this function')) {
-        alert('提交审稿意见失败：您尚未被分配为此投稿的审稿人。\n\n请注意：\n1. 您需要先在"审稿人面板"中注册为审稿人\n2. 期刊编辑需要将您分配为此投稿的审稿人\n3. 在演示环境中，您可以联系管理员进行分配')
+        setError('提交审稿意见失败：您尚未被分配为此投稿的审稿人。\n\n请注意：\n1. 您需要先在"审稿人面板"中注册为审稿人\n2. 期刊编辑需要将您分配为此投稿的审稿人\n3. 在演示环境中，您可以联系管理员进行分配')
       } else {
-        alert('提交审稿意见失败: ' + (error as Error).message)
+        setError('提交审稿意见失败: ' + (error as Error).message)
       }
     } finally {
-      setLoading(false)
+      setIsSubmitting(false)
     }
   }
 
@@ -236,16 +195,11 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
   const getFilteredSubmissions = () => {
     switch (activeTab) {
       case 'pending':
-        return submissions.filter(s => 
-          s.assignedReviewers.includes(address) && 
-          !s.reviews.some(r => r.reviewerId === address)
-        )
+        return submissions.filter(s => s.status === 'under_review')
       case 'completed':
-        return submissions.filter(s => 
-          s.reviews.some(r => r.reviewerId === address)
-        )
+        return submissions.filter(s => s.status === 'accepted' || s.status === 'rejected')
       case 'assigned':
-        return submissions.filter(s => s.assignedReviewers.includes(address))
+        return submissions.filter(s => s.status === 'under_review')
       default:
         return submissions
     }
@@ -257,11 +211,61 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
     }
   }, [address, loadSubmissions])
 
+  // 加载论文详细内容
+  // const loadPaperContent = async (submission: Submission) => {
+  //   if (submission.paperContent) return // 已加载
+  //   
+  //   setLoadingPaperContent(true)
+  //   try {
+  //     // 尝试从IPFS获取论文内容
+  //     if (submission.paperMetadata?.fileUrl) {
+  //       const content = await ipfsService.fetchFromIPFS(submission.paperMetadata.fileUrl)
+  //       // 更新submission的paperContent
+  //       setSubmissions(prev => prev.map(s => 
+  //         s.id === submission.id 
+  //           ? { ...s, paperContent: content }
+  //           : s
+  //       ))
+  //     }
+  //   } catch (error) {
+  //     console.error('加载论文内容失败:', error)
+  //     // 使用模拟内容
+  //     const mockContent = `这是论文《${submission.title}》的模拟内容。\n\n摘要：${submission.abstract}\n\n关键词：${submission.keywords.join(', ')}\n\n正文内容将在此处显示...`
+  //     setSubmissions(prev => prev.map(s => 
+  //       s.id === submission.id 
+  //         ? { ...s, paperContent: mockContent }
+  //         : s
+  //     ))
+  //   } finally {
+  //     setLoadingPaperContent(false)
+  //   }
+  // }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">审稿流程</h2>
+        {dataLoading && (
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+            <span>正在加载数据...</span>
+          </div>
+        )}
       </div>
+
+      {error && (
+        <div className="mb-4 border border-red-200 bg-red-50 rounded-md p-4">
+          <div className="flex justify-between items-start">
+            <span className="text-red-800">{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-600 ml-2 text-lg leading-none"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 标签页 */}
       <div className="border-b border-gray-200">
@@ -301,7 +305,13 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
 
       {/* 投稿列表 */}
       <div className="space-y-4">
-        {getFilteredSubmissions().length === 0 ? (
+        {dataLoading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">正在加载投稿数据</h3>
+            <p className="text-gray-600">请稍候，正在从合约获取最新数据...</p>
+          </div>
+        ) : getFilteredSubmissions().length === 0 ? (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">📄</div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">暂无投稿</h3>
@@ -317,22 +327,25 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
               <div className="flex justify-between items-start mb-4">
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {submission.paperTitle}
+                    {submission.title}
                   </h3>
                   <div className="flex items-center space-x-4 text-sm text-gray-600 mb-2">
                     <span>📖 {submission.journalName}</span>
                     <span>👥 {submission.authors.join(', ')}</span>
-                    <span>📅 {submission.submissionDate}</span>
+                    <span>📅 {new Date(submission.submissionDate).toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                      statusColors[submission.status as keyof typeof statusColors]
+                      statusColors[submission.status]
                     }`}>
-                      {statusLabels[submission.status as keyof typeof statusLabels]}
+                      {statusLabels[submission.status]}
                     </span>
                     <span className="text-sm text-gray-500">
-                      审稿人: {submission.assignedReviewers.length}
+                      审稿人: 0
                     </span>
+                  </div>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600 line-clamp-2">{submission.abstract}</p>
                   </div>
                 </div>
                 <div className="flex space-x-2">
@@ -342,24 +355,21 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
                   >
                     查看详情
                   </button>
-                  {activeTab === 'pending' && !submission.reviews.some(r => r.reviewerId === address) && (
+                  {activeTab === 'pending' && (
                     <>
-                      {!submission.assignedReviewers.includes(address) && (
-                        <button
-                          onClick={() => handleAssignSelfAsReviewer(submission)}
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm transition-colors mr-2"
-                          disabled={loading}
-                        >
-                          分配为审稿人
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleAssignSelfAsReviewer(submission)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm transition-colors mr-2"
+                        disabled={isLoading}
+                      >
+                        分配为审稿人
+                      </button>
                       <button
                         onClick={() => {
                           setSelectedSubmission(submission)
                           setShowReviewForm(true)
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
-                        disabled={!submission.assignedReviewers.includes(address)}
                       >
                         开始审稿
                       </button>
@@ -368,28 +378,8 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
                 </div>
               </div>
 
-              {/* 审稿进度 */}
-              {submission.reviews.length > 0 && (
-                <div className="border-t border-gray-200 pt-4">
-                  <h4 className="font-medium text-gray-900 mb-2">审稿意见</h4>
-                  <div className="space-y-2">
-                    {submission.reviews.map(review => (
-                      <div key={review.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-md">
-                        <div className="flex items-center space-x-3">
-                          <span className="font-medium text-gray-900">{review.reviewerName}</span>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            decisionColors[review.decision as keyof typeof decisionColors]
-                          }`}>
-                            {decisionLabels[review.decision as keyof typeof decisionLabels]}
-                          </span>
-                          <span className="text-sm text-gray-600">评分: {review.score}/10</span>
-                        </div>
-                        <span className="text-sm text-gray-500">{review.submissionDate}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* 审稿进度 - 暂时隐藏，因为新数据结构中没有reviews字段 */}
+              {/* 可以在这里添加从区块链查询审稿意见的功能 */}
             </div>
           ))
         )}
@@ -414,7 +404,7 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">论文信息</h4>
                   <div className="bg-gray-50 p-4 rounded-md">
-                    <h5 className="font-semibold text-gray-900 mb-2">{selectedSubmission.paperTitle}</h5>
+                    <h5 className="font-semibold text-gray-900 mb-2">{selectedSubmission.title}</h5>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="font-medium text-gray-700">期刊:</span>
@@ -422,65 +412,42 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
                       </div>
                       <div>
                         <span className="font-medium text-gray-700">投稿日期:</span>
-                        <span className="ml-2 text-gray-600">{selectedSubmission.submissionDate}</span>
+                        <span className="ml-2 text-gray-600">{new Date(selectedSubmission.submissionDate).toLocaleDateString()}</span>
                       </div>
                       <div className="col-span-2">
                         <span className="font-medium text-gray-700">作者:</span>
                         <span className="ml-2 text-gray-600">{selectedSubmission.authors.join(', ')}</span>
                       </div>
+                      <div className="col-span-2">
+                        <span className="font-medium text-gray-700">关键词:</span>
+                        <span className="ml-2 text-gray-600">{selectedSubmission.keywords.join(', ')}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium text-gray-700">IPFS哈希:</span>
+                        <code className="ml-2 text-xs bg-gray-200 px-1 rounded">{selectedSubmission.ipfsHash}</code>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">投稿信</h4>
+                  <h4 className="font-medium text-gray-900 mb-2">摘要</h4>
                   <div className="bg-gray-50 p-4 rounded-md">
-                    <p className="text-gray-700 text-sm">{selectedSubmission.coverLetter}</p>
+                    <p className="text-gray-700 text-sm">{selectedSubmission.abstract}</p>
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">建议审稿人</h4>
-                  <div className="bg-gray-50 p-4 rounded-md">
-                    <div className="flex flex-wrap gap-2">
-                      {selectedSubmission.suggestedReviewers.map(reviewer => (
-                        <span key={reviewer} className="bg-blue-100 text-blue-800 px-2 py-1 rounded-md text-sm">
-                          {reviewer}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {selectedSubmission.reviews.length > 0 && (
+                {selectedSubmission.paperContent && (
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">审稿意见</h4>
-                    <div className="space-y-4">
-                      {selectedSubmission.reviews.map(review => (
-                        <div key={review.id} className="bg-gray-50 p-4 rounded-md">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="font-medium text-gray-900">{review.reviewerName}</span>
-                            <div className="flex items-center space-x-2">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                decisionColors[review.decision as keyof typeof decisionColors]
-                              }`}>
-                                {decisionLabels[review.decision as keyof typeof decisionLabels]}
-                              </span>
-                              <span className="text-sm text-gray-600">评分: {review.score}/10</span>
-                            </div>
-                          </div>
-                          <p className="text-gray-700 text-sm mb-2">{review.comments}</p>
-                          {review.confidentialComments && (
-                            <div className="border-t border-gray-200 pt-2">
-                              <p className="text-xs text-gray-500 mb-1">机密意见（仅编辑可见）:</p>
-                              <p className="text-gray-600 text-sm">{review.confidentialComments}</p>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                    <h4 className="font-medium text-gray-900 mb-2">论文内容</h4>
+                    <div className="bg-gray-50 p-4 rounded-md max-h-96 overflow-y-auto">
+                      <pre className="text-sm text-gray-700 whitespace-pre-wrap">{selectedSubmission.paperContent}</pre>
                     </div>
                   </div>
                 )}
+
+                {/* 审稿意见部分 - 暂时隐藏，因为新数据结构中没有reviews字段 */}
+                {/* 可以在这里添加从区块链查询审稿意见的功能 */}
               </div>
             </div>
           </div>
@@ -508,8 +475,9 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
               <div className="mb-6">
                 <h4 className="font-medium text-gray-900 mb-2">论文信息</h4>
                 <div className="bg-gray-50 p-4 rounded-md">
-                  <h5 className="font-semibold text-gray-900">{selectedSubmission.paperTitle}</h5>
+                  <h5 className="font-semibold text-gray-900">{selectedSubmission.title}</h5>
                   <p className="text-gray-600 text-sm">{selectedSubmission.journalName}</p>
+                  <p className="text-gray-600 text-sm mt-1">作者: {selectedSubmission.authors.join(', ')}</p>
                 </div>
               </div>
 
@@ -586,10 +554,10 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
                   </button>
                   <button
                     type="submit"
-                    disabled={loading}
+                    disabled={isSubmitting}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50"
                   >
-                    {loading ? '提交中...' : '提交审稿意见'}
+                    {isSubmitting ? '提交中...' : '提交审稿意见'}
                   </button>
                 </div>
               </form>

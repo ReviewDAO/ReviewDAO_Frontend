@@ -70,23 +70,27 @@ export class QueryService {
   // 获取期刊信息
   async getJournal(journalId: number) {
     try {
-      const journal = await this.contracts.journalManager.journals(journalId)
+      const journal = await this.contracts.journalManager.getJournalInfo(journalId)
       const editors = await this.contracts.journalManager.getJournalEditors(journalId)
-      const categories = await this.contracts.journalManager.getJournalCategories(journalId)
+      
+      // 检查期刊是否存在（owner为零地址表示不存在）
+      if (journal.owner === '0x0000000000000000000000000000000000000000') {
+        throw new Error(`Journal ${journalId} does not exist`)
+      }
       
       return {
-        id: journalId,
+        id: journal.id.toString(),
         name: journal.name,
         description: journal.description,
         metadataURI: journal.metadataURI,
         owner: journal.owner,
         submissionFee: journal.submissionFee.toString(),
         status: journal.status,
-        createdAt: journal.createdAt.toString(),
+        createdAt: journal.createdTime.toString(),
         minReviewerTier: journal.minReviewerTier,
-        requiredReviewers: journal.requiredReviewers,
+        requiredReviewers: journal.requiredReviewers.toString(),
         editors,
-        categories
+        categories: journal.categories || []
       }
     } catch (error) {
       console.error('Error fetching journal:', error)
@@ -100,7 +104,8 @@ export class QueryService {
       const count = await this.contracts.journalManager.getJournalCount()
       const journals = []
       
-      for (let i = 1; i <= count; i++) {
+      // 期刊ID从0开始，所以使用0-based索引
+      for (let i = 0; i < count; i++) {
         try {
           const journal = await this.getJournal(i)
           journals.push(journal)

@@ -95,7 +95,7 @@ export function ReviewerDashboard({ address, onTransactionSuccess }: ReviewerDas
       // 调用合约注册审稿人
       const response = await contractService.registerAsReviewer(metadataURI)
 
-      onTransactionSuccess(response.txHash)
+      onTransactionSuccess(response.hash)
       setShowRegisterForm(false)
       setIsRegistered(true)
 

@@ -121,7 +121,7 @@ export function Dex() {
       })
 
       console.log('Order created:', response)
-      setLastTxHash(response.txHash)
+      setLastTxHash((response as any).hash)
 
       // 交易成功后重新加载订单簿
       if (selectedMarket) {
@@ -273,4 +273,4 @@ export function Dex() {
       </div>
     </div>
   )
-} 
+}

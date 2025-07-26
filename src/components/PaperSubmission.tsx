@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { createContractService } from '../services/ContractService'
 import { ipfsService } from '../services/IPFSService'
 import { queryService } from '../services/QueryService'
+import { getMigratedTestData, FrontendJournal } from '../utils/testDataMigration'
 
 interface PaperSubmissionProps {
   address: string
@@ -38,6 +39,8 @@ interface SubmissionForm {
 
 export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissionProps) {
   const [papers, setPapers] = useState<Paper[]>([])
+  const [journals, setJournals] = useState<FrontendJournal[]>([])
+  const [dataLoading, setDataLoading] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showSubmissionForm, setShowSubmissionForm] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -74,11 +77,19 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
     'Distributed Systems'
   ]
 
-  const mockJournals = [
-    { id: 1, name: 'Blockchain Research Journal' },
-    { id: 2, name: 'AI & Machine Learning Review' },
-    { id: 3, name: 'Computer Science Quarterly' }
-  ]
+  // 加载真实期刊数据
+  const loadJournals = useCallback(async () => {
+    try {
+      setDataLoading(true)
+      const data = await getMigratedTestData()
+      setJournals(data.journals)
+    } catch (error) {
+      console.error('Error loading journals:', error)
+      setJournals([])
+    } finally {
+      setDataLoading(false)
+    }
+  }, [])
 
   const handleCreatePaper = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -278,7 +289,8 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
 
   useEffect(() => {
     loadPapers()
-  }, [address, loadPapers])
+    loadJournals()
+  }, [address, loadPapers, loadJournals])
 
   return (
     <div className="space-y-6">
@@ -545,9 +557,10 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
                   onChange={(e) => setSubmissionForm({ ...submissionForm, journalId: parseInt(e.target.value) })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                  disabled={dataLoading}
                 >
-                  <option value={0}>选择期刊</option>
-                  {mockJournals.map(journal => (
+                  <option value={0}>{dataLoading ? '正在加载期刊...' : '选择期刊'}</option>
+                  {journals.map(journal => (
                     <option key={journal.id} value={journal.id}>{journal.name}</option>
                   ))}
                 </select>

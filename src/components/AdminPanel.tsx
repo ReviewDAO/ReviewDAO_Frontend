@@ -150,8 +150,8 @@ export function AdminPanel({ address, onTransactionSuccess }: AdminPanelProps) {
           selectedReviewer.address,
           updateForm.tier
         )
-        if (tierResponse.txHash) {
-          onTransactionSuccess(tierResponse.txHash)
+        if (tierResponse.hash) {
+          onTransactionSuccess(tierResponse.hash)
         }
       }
 
@@ -161,8 +161,8 @@ export function AdminPanel({ address, onTransactionSuccess }: AdminPanelProps) {
           selectedReviewer.address,
           updateForm.reputationChange
         )
-        if (reputationResponse.txHash) {
-          onTransactionSuccess(reputationResponse.txHash)
+        if (reputationResponse.hash) {
+          onTransactionSuccess(reputationResponse.hash)
         }
       }
 

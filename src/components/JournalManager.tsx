@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { createContractService } from '../services/ContractService'
 import { ipfsService } from '../services/IPFSService'
+import { QueryService } from '../services/QueryService'
 
 
 interface JournalManagerProps {
@@ -99,7 +100,7 @@ export function JournalManager({ address, onTransactionSuccess }: JournalManager
         requiredReviewers: createForm.requiredReviewers
       })
 
-      onTransactionSuccess(response.txHash)
+      onTransactionSuccess(response.hash)
       setShowCreateForm(false)
       setCreateForm({
         name: '',
@@ -151,7 +152,7 @@ export function JournalManager({ address, onTransactionSuccess }: JournalManager
         journalId: selectedJournalId,
         editorAddress: editorAddress
       })
-      onTransactionSuccess(response.txHash)
+      onTransactionSuccess(response.hash)
       setEditorAddress('')
       setSelectedJournalId(null)
     } catch (error) {
@@ -163,20 +164,29 @@ export function JournalManager({ address, onTransactionSuccess }: JournalManager
   }
 
   const loadJournals = useCallback(async () => {
-    // 这里应该从合约查询期刊列表
-    // 暂时使用模拟数据
-    setJournals([
-      {
-        id: 0,
-        name: 'Blockchain Research Journal',
-        description: 'A journal dedicated to blockchain technology research',
-        chiefEditor: address,
-        submissionFee: '0.1',
-        categories: ['Blockchain Technology', 'Computer Science'],
-        status: 'Active'
-      }
-    ])
-  }, [address])
+    try {
+      const queryService = new QueryService()
+      const contractJournals = await queryService.getAllJournals()
+      
+      // 转换合约数据为前端格式
+      const formattedJournals: Journal[] = contractJournals.map(journal => ({
+        id: parseInt(journal.id.toString()),
+        name: journal.name || `期刊 ${journal.id}`,
+        description: journal.description || '暂无描述',
+        chiefEditor: journal.owner,
+        submissionFee: (parseFloat(journal.submissionFee) / 1e18).toString(), // 从wei转换为ETH
+        categories: journal.categories || [],
+        status: journal.status === 0 ? 'Active' : journal.status === 1 ? 'Suspended' : 'Closed'
+      }))
+      
+      setJournals(formattedJournals)
+      console.log('从合约加载的期刊数据:', formattedJournals)
+    } catch (error) {
+      console.error('加载期刊数据失败:', error)
+      // 如果加载失败，使用空数组
+      setJournals([])
+    }
+  }, [])
 
   useEffect(() => {
     loadJournals()
