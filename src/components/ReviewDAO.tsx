@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { walletStrategy } from '../services/Wallet'
+import { Wallet } from '@injectivelabs/wallet-base'
+import { disconnectWallet } from '../services/Wallet'
 import { JournalManager } from './JournalManager'
 import { PaperSubmission } from './PaperSubmission'
 import { ReviewerDashboard } from './ReviewerDashboard'
@@ -13,7 +15,7 @@ type TabType = 'journals' | 'papers' | 'reviewer' | 'reviews' | 'rewards' | 'gov
 
 
 
-export function AcademicSystem() {
+export function ReviewDAO() {
   const [address, setAddress] = useState<string>('')
   const [activeTab, setActiveTab] = useState<TabType>('journals')
 
@@ -23,19 +25,42 @@ export function AcademicSystem() {
   // 初始化组件
   useEffect(() => {
     // 可以在这里添加初始化逻辑
-    console.log('Academic System initialized')
+    console.log('ReviewDAO initialized')
   }, [])
 
   const connectWallet = async () => {
     try {
       setLoading(true)
+      
+      // 首先设置钱包为Keplr
+      await walletStrategy.setWallet(Wallet.Keplr)
+      
+      // 获取地址
       const addresses = await walletStrategy.getAddresses()
       if (addresses.length > 0) {
         setAddress(addresses[0])
-
+        console.log('Connected to Keplr wallet:', addresses[0])
+      } else {
+        throw new Error('No addresses found in wallet')
       }
     } catch (error) {
       console.error('Error connecting wallet:', error)
+      alert('连接钱包失败: ' + (error as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDisconnectWallet = async () => {
+    try {
+      setLoading(true)
+      await disconnectWallet()
+      setAddress('')
+      setLastTxHash('')
+      console.log('Wallet disconnected successfully')
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error)
+      alert('断开钱包失败: ' + (error as Error).message)
     } finally {
       setLoading(false)
     }
@@ -68,7 +93,7 @@ export function AcademicSystem() {
             <div className="flex items-center space-x-4">
               <div className="text-3xl">🎓</div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">学术评价系统</h1>
+                <h1 className="text-2xl font-bold text-gray-900">ReviewDAO</h1>
                 <p className="text-sm text-gray-600">基于Injective区块链的去中心化学术发表平台</p>
               </div>
             </div>
@@ -82,11 +107,20 @@ export function AcademicSystem() {
                 {loading ? '连接中...' : '连接钱包'}
               </button>
             ) : (
-              <div className="text-right">
-                <div className="text-sm text-gray-600">钱包地址</div>
-                <div className="font-mono text-sm bg-gray-100 px-3 py-1 rounded">
-                  {address.slice(0, 8)}...{address.slice(-6)}
+              <div className="flex items-center space-x-4">
+                <div className="text-right">
+                  <div className="text-sm text-gray-600">钱包地址</div>
+                  <div className="font-mono text-sm bg-gray-100 px-3 py-1 rounded">
+                    {address.slice(0, 8)}...{address.slice(-6)}
+                  </div>
                 </div>
+                <button
+                  onClick={handleDisconnectWallet}
+                  disabled={loading}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 text-sm"
+                >
+                  {loading ? '断开中...' : '断开钱包'}
+                </button>
               </div>
             )}
           </div>
@@ -202,7 +236,7 @@ export function AcademicSystem() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
             <div className="text-6xl mb-6">🎓</div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">欢迎使用学术评价系统</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">欢迎使用ReviewDAO</h2>
             <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
               这是一个基于Injective区块链的去中心化学术发表平台，支持期刊管理、论文投稿、同行评议等完整的学术发表流程。
             </p>

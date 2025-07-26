@@ -251,18 +251,6 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
       }
 
       console.log('Loading papers for address:', address)
-      
-      // 检查合约总供应量
-      try {
-        const systemStats = await queryService.getSystemStats()
-        console.log('System stats:', systemStats)
-        if (systemStats.totalPapers === '0') {
-          console.warn('合约中没有任何论文NFT，可能是合约部署问题或网络配置错误')
-        }
-      } catch (error) {
-        console.error('Failed to get system stats:', error)
-      }
-      
       // 从合约查询用户的论文列表
       const userPapers = await queryService.getUserPapers(address)
       console.log('Retrieved user papers:', userPapers)

@@ -1,6 +1,7 @@
 import { ethers } from 'ethers'
 import { getEthereumAddress } from '@injectivelabs/sdk-ts'
-import { CONTRACT_ADDRESSES, CONTRACT_ABIS } from '../config/contracts'
+import { CONTRACT_ADDRESSES, CONTRACT_ABIS, RPC_CONFIG } from '../config/contracts'
+import type { NetworkSwitchError } from '../types/ethereum'
 
 // 合约服务类
 export class ContractService {
@@ -29,13 +30,94 @@ export class ContractService {
     return ethers.getAddress(address) // 返回校验和格式的地址
   }
 
+  // 添加Injective网络到Keplr
+  private async addInjectiveNetwork() {
+    if (!window.keplr?.ethereum) {
+      throw new Error('Keplr EVM support not available')
+    }
+
+    try {
+      await window.keplr.ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [{
+          chainId: `0x${parseInt(RPC_CONFIG.chainId).toString(16)}`, // 1439 -> 0x59f
+          chainName: 'Injective Testnet',
+          nativeCurrency: {
+            name: 'Injective',
+            symbol: 'INJ',
+            decimals: 18
+          },
+          rpcUrls: [RPC_CONFIG.endpoint],
+          blockExplorerUrls: ['https://testnet.explorer.injective.network/']
+        }]
+      })
+    } catch (error: unknown) {
+      const networkError = error as NetworkSwitchError
+      // 如果网络已存在，忽略错误
+      if (networkError.code !== 4902) {
+        console.error('Error adding Injective network:', error)
+      }
+    }
+  }
+
+  // 切换到Injective网络
+  private async switchToInjectiveNetwork() {
+    if (!window.keplr?.ethereum) {
+      throw new Error('Keplr EVM support not available')
+    }
+
+    try {
+      await window.keplr.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: `0x${parseInt(RPC_CONFIG.chainId).toString(16)}` }]
+      })
+    } catch (error: unknown) {
+      const networkError = error as NetworkSwitchError
+      // 如果网络不存在，先添加再切换
+      if (networkError.code === 4902) {
+        await this.addInjectiveNetwork()
+        await this.switchToInjectiveNetwork()
+      } else {
+        console.error('Error switching to Injective network:', error)
+        throw error
+      }
+    }
+  }
+
   // 设置签名者
   async setSigner() {
-    if (typeof window !== 'undefined' && window.ethereum) {
-      const browserProvider = new ethers.BrowserProvider(window.ethereum)
-      this.signer = await browserProvider.getSigner()
-    } else {
-      throw new Error('No Ethereum provider found')
+    try {
+      // 检查是否有Keplr钱包
+      if (!window.keplr) {
+        throw new Error('Keplr wallet not found')
+      }
+
+      // 检查Keplr是否支持EVM
+      if (!window.keplr.ethereum) {
+        throw new Error('Keplr EVM support not available')
+      }
+
+      // 添加Injective测试网到Keplr
+      await this.addInjectiveNetwork()
+      
+      // 切换到Injective测试网
+      await this.switchToInjectiveNetwork()
+
+      // 启用Keplr的EVM功能
+      if (window.keplr.ethereum.enable) {
+        await window.keplr.ethereum.enable()
+      }
+      
+      // 创建ethers provider使用Keplr的ethereum provider
+      const provider = new ethers.BrowserProvider(window.keplr.ethereum)
+      this.signer = await provider.getSigner()
+      
+      const address = await this.signer.getAddress()
+      console.log('Signer set successfully for address:', address)
+      
+    } catch (error) {
+      console.error('Error setting signer:', error)
+      throw new Error('Failed to connect to Injective wallet: ' + (error as Error).message)
     }
   }
 

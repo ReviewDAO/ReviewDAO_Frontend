@@ -52,7 +52,9 @@ export class QueryService {
     if (address.startsWith('inj')) {
       try {
         // Convert Injective bech32 address to Ethereum hex format
-        return getEthereumAddress(address)
+        const ethAddress = getEthereumAddress(address)
+        // 确保返回校验和格式的地址
+        return ethers.getAddress(ethAddress)
       } catch {
         throw new Error(`Invalid Injective address format: ${address}`);
       }

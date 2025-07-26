@@ -9,6 +9,11 @@ export const CONTRACT_ADDRESSES = {
 
 // RPC配置
 export const RPC_CONFIG = {
+  endpoints: [
+    'https://solemn-neat-meadow.injective-testnet.quiknode.pro/4a1ce2523092ceec9ddebe3812387be68c53ab9e/',
+    'https://k8s.testnet.json-rpc.injective.network/',
+    'https://testnet.sentry.json-rpc.injective.network/'
+  ],
   endpoint: 'https://solemn-neat-meadow.injective-testnet.quiknode.pro/4a1ce2523092ceec9ddebe3812387be68c53ab9e/',
   chainId: '1439',
   apiKey: 'QN_672a648618ca4bcdb3da46be0e7eb8fe',

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { createContractService } from '../services/ContractService'
+import { formatINJ } from '../utils/formatters'
 
 interface RewardManagerProps {
   address: string
@@ -229,7 +230,7 @@ export function RewardManager({ address, onTransactionSuccess }: RewardManagerPr
                       <div className="mt-2 text-sm text-green-700">
                         <div>质量评分: {review.qualityScore}/100</div>
                         <div>及时完成: {review.timelyCompletion ? '是' : '否'}</div>
-                        <div>奖励金额: {review.rewardAmount} RDT</div>
+                        <div>奖励金额: {formatINJ(review.rewardAmount || '0')}</div>
                       </div>
                     </div>
                   )}
@@ -303,9 +304,9 @@ export function RewardManager({ address, onTransactionSuccess }: RewardManagerPr
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                 <div className="text-sm text-blue-700">
                   <div className="font-medium mb-1">预计奖励金额:</div>
-                  <div>{calculateRewardAmount(rewardForm.qualityScore, rewardForm.timelyCompletion)} RDT</div>
+                  <div>{formatINJ(calculateRewardAmount(rewardForm.qualityScore, rewardForm.timelyCompletion).toString())}</div>
                   <div className="text-xs mt-1 text-blue-600">
-                    基础奖励: 10 RDT + 质量奖励: {rewardForm.qualityScore > 80 ? 5 : 0} RDT + 速度奖励: {rewardForm.timelyCompletion ? 3 : 0} RDT
+                    基础奖励: {formatINJ('10')} + 质量奖励: {formatINJ((rewardForm.qualityScore > 80 ? 5 : 0).toString())} + 速度奖励: {formatINJ((rewardForm.timelyCompletion ? 3 : 0).toString())}
                   </div>
                 </div>
               </div>
