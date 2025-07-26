@@ -37,7 +37,7 @@ export function AdminPanel({ address, onTransactionSuccess }: AdminPanelProps) {
     reputationChange: 0
   })
 
-  const contractService = createContractService(address)
+  const contractService = createContractService()
 
   const tierLabels = {
     0: '未注册',

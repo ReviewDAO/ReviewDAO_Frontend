@@ -7,10 +7,16 @@ import {
 } from '@injectivelabs/sdk-ts'
 import { getNetworkEndpoints, Network } from '@injectivelabs/networks'
 import { BigNumber } from '@injectivelabs/utils'
+import { RPC_CONFIG } from '../config/contracts'
 
-// Using testnet
+// Using testnet with custom QuickNode endpoint for RPC only
 export const NETWORK = Network.Testnet
-export const ENDPOINTS = getNetworkEndpoints(NETWORK)
+const defaultEndpoints = getNetworkEndpoints(NETWORK)
+export const ENDPOINTS = {
+  ...defaultEndpoints,
+  // Only use QuickNode for JSON-RPC, keep official endpoints for gRPC
+  rpc: RPC_CONFIG.endpoint
+}
 
 // Initialize API clients
 export const chainBankApi = new ChainGrpcBankApi(ENDPOINTS.grpc)

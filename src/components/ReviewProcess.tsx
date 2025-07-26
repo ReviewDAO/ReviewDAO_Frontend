@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { createContractService } from '../services/ContractService'
 import { ipfsService } from '../services/IPFSService'
 
@@ -53,7 +53,7 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
     score: 5
   })
 
-  const contractService = createContractService(address)
+  const contractService = createContractService()
 
   const statusLabels = {
     0: '待分配审稿人',
@@ -87,7 +87,7 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
     5: 'bg-yellow-100 text-yellow-800'
   }
 
-  const loadSubmissions = async () => {
+  const loadSubmissions = useCallback(async () => {
     try {
       // 这里应该从合约查询投稿信息
       // 暂时使用模拟数据
@@ -136,6 +136,42 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
     } catch (error) {
       console.error('Error loading submissions:', error)
     }
+  }, [address])
+
+  const handleAssignSelfAsReviewer = async (submission: Submission) => {
+    try {
+      setLoading(true)
+      
+      await contractService.assignReviewer({
+        submissionId: parseInt(submission.id),
+        reviewerAddress: address
+      })
+      
+      alert('成功分配为审稿人！现在您可以开始审稿了。')
+      
+      // 更新本地状态
+      const updatedSubmissions = submissions.map(s => 
+        s.id === submission.id 
+          ? { ...s, assignedReviewers: [...s.assignedReviewers, address] }
+          : s
+      )
+      setSubmissions(updatedSubmissions)
+      
+    } catch (error) {
+      console.error('Error assigning reviewer:', error)
+      
+      if ((error as Error).message.includes('Not authorized')) {
+        alert('分配审稿人失败：您没有权限分配审稿人。\n\n在实际应用中，只有期刊编辑或管理员可以分配审稿人。\n在演示环境中，请联系管理员获取相应权限。')
+      } else if ((error as Error).message.includes('Not a registered reviewer')) {
+        alert('分配审稿人失败：您尚未注册为审稿人。\n\n请先在"审稿人面板"中注册为审稿人，然后再尝试分配。')
+      } else if ((error as Error).message.includes('Reviewer already assigned')) {
+        alert('您已经被分配为此投稿的审稿人。')
+      } else {
+        alert('分配审稿人失败: ' + (error as Error).message)
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleSubmitReview = async (e: React.FormEvent) => {
@@ -162,7 +198,8 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
 
       // 调用合约提交审稿意见
       const response = await contractService.submitReview(
-        selectedSubmission.id,
+        parseInt(selectedSubmission.id),
+        reviewForm.decision,
         metadataURI
       )
 
@@ -182,26 +219,19 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
       loadSubmissions()
     } catch (error) {
       console.error('Error submitting review:', error)
-      alert('提交审稿意见失败: ' + (error as Error).message)
+      
+      // 提供更友好的错误信息
+      if ((error as Error).message.includes('Only assigned reviewers can call this function')) {
+        alert('提交审稿意见失败：您尚未被分配为此投稿的审稿人。\n\n请注意：\n1. 您需要先在"审稿人面板"中注册为审稿人\n2. 期刊编辑需要将您分配为此投稿的审稿人\n3. 在演示环境中，您可以联系管理员进行分配')
+      } else {
+        alert('提交审稿意见失败: ' + (error as Error).message)
+      }
     } finally {
       setLoading(false)
     }
   }
 
-  const handlePublishPaper = async (submissionId: string) => {
-    try {
-      setLoading(true)
 
-      const response = await contractService.publishPaper(submissionId, 'volume1')
-      onTransactionSuccess(response.txHash)
-      loadSubmissions()
-    } catch (error) {
-      console.error('Error publishing paper:', error)
-      alert('发表论文失败: ' + (error as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const getFilteredSubmissions = () => {
     switch (activeTab) {
@@ -225,7 +255,7 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
     if (address) {
       loadSubmissions()
     }
-  }, [address])
+  }, [address, loadSubmissions])
 
   return (
     <div className="space-y-6">
@@ -313,15 +343,27 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
                     查看详情
                   </button>
                   {activeTab === 'pending' && !submission.reviews.some(r => r.reviewerId === address) && (
-                    <button
-                      onClick={() => {
-                        setSelectedSubmission(submission)
-                        setShowReviewForm(true)
-                      }}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
-                    >
-                      开始审稿
-                    </button>
+                    <>
+                      {!submission.assignedReviewers.includes(address) && (
+                        <button
+                          onClick={() => handleAssignSelfAsReviewer(submission)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md text-sm transition-colors mr-2"
+                          disabled={loading}
+                        >
+                          分配为审稿人
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setSelectedSubmission(submission)
+                          setShowReviewForm(true)
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
+                        disabled={!submission.assignedReviewers.includes(address)}
+                      >
+                        开始审稿
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

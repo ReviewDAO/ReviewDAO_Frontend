@@ -9,20 +9,23 @@ export const CONTRACT_ADDRESSES = {
 
 // RPC配置
 export const RPC_CONFIG = {
-  endpoint: 'https://solemn-neat-meadow.injective-testnet.quiknode.pro/4a1ce2523092ceec9ddebe3812387be68c53ab9e',
-  chainId: 'injective-888'
+  endpoint: 'https://solemn-neat-meadow.injective-testnet.quiknode.pro/4a1ce2523092ceec9ddebe3812387be68c53ab9e/',
+  chainId: '1439',
+  apiKey: 'QN_672a648618ca4bcdb3da46be0e7eb8fe',
+  network: 'injective-testnet'
 }
 
 // IPFS配置
 export const IPFS_CONFIG = {
-  apiKey: 'daa5d6c28febf353121e',
-  gateway: 'https://gateway.pinata.cloud/ipfs/'
+  // Pinata JWT API密钥已配置
+  apiKey: import.meta.env.VITE_PINATA_API_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiI4YzJlYzY1NC1mMWEyLTQ0YTktYmU2Yi00MGU1NDlkNzJmYTgiLCJlbWFpbCI6ImNob3JkMjQ0QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6IkZSQTEifSx7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6Ik5ZQzEifV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2UsInN0YXR1cyI6IkFDVElWRSJ9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiI4NTI0MDExMDYzNTEzNWQzNTFjNSIsInNjb3BlZEtleVNlY3JldCI6IjRkN2ViNDE2N2Q0YmVkZTRhODMxMWY4NzI2NmYxNmEzOTlkNzIyZmMwODA3NjRmNjc5MTkwZTRlNzBhZWIwNWEiLCJleHAiOjE3ODUwNDQzNTF9.NS6nsuZgSukTbUShT7UU7NaxejcvZJyJIlMRFQfEI2w',
+  gateway: 'https://teal-abstract-gazelle-306.mypinata.cloud/ipfs/'
 }
 
 // 合约ABI简化版本 - 主要方法
 export const CONTRACT_ABIS = {
   JournalManager: [
-    'function createJournal(string name, string description, string metadataURI, address owner, uint256 submissionFee, string[] categories, uint8 minReviewerTier, uint8 requiredReviewers) external',
+    'function createJournal(string name, string description, string metadataURI, address owner, uint256 submissionFee, string[] categories, uint8 minReviewerTier, uint256 requiredReviewers) external',
     'function journals(uint256 id) external view returns (tuple(string name, string description, string metadataURI, address owner, uint256 submissionFee, uint8 status, uint256 createdAt, uint8 minReviewerTier, uint8 requiredReviewers))',
     'function getJournalCount() external view returns (uint256)',
     'function getJournalEditors(uint256 journalId) external view returns (address[] memory)',
@@ -30,7 +33,10 @@ export const CONTRACT_ABIS = {
     'function addEditor(uint256 journalId, address editor) external',
     'function removeEditor(uint256 journalId, address editor) external',
     'function updateSubmissionFee(uint256 journalId, uint256 newFee) external',
-    'function updateJournalStatus(uint256 journalId, uint8 status) external'
+    'function updateJournalStatus(uint256 journalId, uint8 status) external',
+    'function hasRole(bytes32 role, address account) external view returns (bool)',
+    'function ADMIN_ROLE() external view returns (bytes32)',
+    'function EDITOR_ROLE() external view returns (bytes32)'
   ],
   ReviewerDAO: [
     'function registerAsReviewer(string metadataURI) external',
@@ -44,15 +50,20 @@ export const CONTRACT_ABIS = {
     'function balanceOf(address account) external view returns (uint256)'
   ],
   PaperNFT: [
+    'function createPaperItem(string ipfsHash, string doi, string metadataURI) external',
     'function mint(address to, string tokenURI) external returns (uint256)',
     'function tokenURI(uint256 tokenId) external view returns (string)',
     'function ownerOf(uint256 tokenId) external view returns (address)',
     'function balanceOf(address owner) external view returns (uint256)',
     'function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)',
     'function totalSupply() external view returns (uint256)',
-    'function tokenByIndex(uint256 index) external view returns (uint256)'
-  ],
-  ReviewProcess: [
+    'function tokenByIndex(uint256 index) external view returns (uint256)',
+    'function citePaper(uint256 paperId) external payable',
+    'function paperDOIs(uint256 tokenId) external view returns (string)',
+    'function citations(uint256 paperId, uint256 index) external view returns (tuple(address citer, uint256 amount, uint256 timestamp))'
+   ],
+   ReviewProcess: [
+    'function createSubmission(uint256 paperId, uint256 journalId, string metadataURI) external',
     'function submitPaper(uint256 journalId, string ipfsHash) external payable',
     'function assignReviewer(uint256 submissionId, address reviewer) external',
     'function submitReview(uint256 submissionId, uint8 decision, string commentsHash) external',

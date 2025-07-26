@@ -40,7 +40,7 @@ export function DAOGovernance({ address, onTransactionSuccess }: DAOGovernancePr
     votingDuration: 7
   })
 
-  const contractService = createContractService(address)
+  const contractService = createContractService()
 
   const proposalTypes = {
     0: '一般提案',
@@ -143,8 +143,8 @@ export function DAOGovernance({ address, onTransactionSuccess }: DAOGovernancePr
         votingDuration: createForm.votingDuration * 24 * 60 * 60 // 转换为秒
       })
 
-      if (response.txHash) {
-        onTransactionSuccess(response.txHash)
+      if (response.transactionHash) {
+        onTransactionSuccess(response.transactionHash)
         setShowCreateForm(false)
         setCreateForm({
           proposalType: 0,
@@ -166,10 +166,10 @@ export function DAOGovernance({ address, onTransactionSuccess }: DAOGovernancePr
     try {
       setLoading(true)
 
-      const response = await contractService.vote(proposalId, voteType)
+      const response = await contractService.voteOnProposal(proposalId, voteType === 1)
 
-      if (response.txHash) {
-        onTransactionSuccess(response.txHash)
+      if (response.transactionHash) {
+        onTransactionSuccess(response.transactionHash)
         await loadProposals()
       }
     } catch (error) {
@@ -186,8 +186,8 @@ export function DAOGovernance({ address, onTransactionSuccess }: DAOGovernancePr
 
       const response = await contractService.executeProposal(proposalId)
 
-      if (response.txHash) {
-        onTransactionSuccess(response.txHash)
+      if (response.transactionHash) {
+        onTransactionSuccess(response.transactionHash)
         await loadProposals()
       }
     } catch (error) {

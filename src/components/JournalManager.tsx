@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { createContractService } from '../services/ContractService'
 import { ipfsService } from '../services/IPFSService'
-import { ENUMS } from '../config/contracts'
+
 
 interface JournalManagerProps {
   address: string
@@ -47,7 +47,7 @@ export function JournalManager({ address, onTransactionSuccess }: JournalManager
   const [editorAddress, setEditorAddress] = useState('')
   const [selectedJournalId, setSelectedJournalId] = useState<number | null>(null)
 
-  const contractService = createContractService(address)
+  const contractService = createContractService()
 
   const availableCategories = [
     'Computer Science',
@@ -147,7 +147,10 @@ export function JournalManager({ address, onTransactionSuccess }: JournalManager
 
     try {
       setLoading(true)
-      const response = await contractService.addEditor(selectedJournalId, editorAddress)
+      const response = await contractService.addEditor({
+        journalId: selectedJournalId,
+        editorAddress: editorAddress
+      })
       onTransactionSuccess(response.txHash)
       setEditorAddress('')
       setSelectedJournalId(null)
@@ -159,7 +162,7 @@ export function JournalManager({ address, onTransactionSuccess }: JournalManager
     }
   }
 
-  const loadJournals = async () => {
+  const loadJournals = useCallback(async () => {
     // 这里应该从合约查询期刊列表
     // 暂时使用模拟数据
     setJournals([
@@ -173,11 +176,11 @@ export function JournalManager({ address, onTransactionSuccess }: JournalManager
         status: 'Active'
       }
     ])
-  }
+  }, [address])
 
   useEffect(() => {
     loadJournals()
-  }, [address])
+  }, [loadJournals])
 
   return (
     <div className="space-y-6">

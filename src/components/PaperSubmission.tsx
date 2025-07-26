@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { createContractService } from '../services/ContractService'
 import { ipfsService } from '../services/IPFSService'
+import { queryService } from '../services/QueryService'
 
 interface PaperSubmissionProps {
   address: string
@@ -60,7 +61,7 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
   const [newKeyword, setNewKeyword] = useState('')
   const [newReviewer, setNewReviewer] = useState('')
 
-  const contractService = createContractService(address)
+  const contractService = createContractService()
 
   const categories = [
     'Computer Science',
@@ -74,9 +75,9 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
   ]
 
   const mockJournals = [
-    { id: 0, name: 'Blockchain Research Journal' },
-    { id: 1, name: 'AI & Machine Learning Review' },
-    { id: 2, name: 'Computer Science Quarterly' }
+    { id: 1, name: 'Blockchain Research Journal' },
+    { id: 2, name: 'AI & Machine Learning Review' },
+    { id: 3, name: 'Computer Science Quarterly' }
   ]
 
   const handleCreatePaper = async (e: React.FormEvent) => {
@@ -110,12 +111,17 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
 
       // 调用合约创建论文NFT
       const response = await contractService.createPaper({
+        title: createForm.title,
+        abstract: createForm.abstract,
+        metadataURI,
+        journalId: 0, // 默认期刊ID，后续可以让用户选择
         ipfsHash: fileHash || metadataHash,
-        doi,
-        metadataURI
+        doi
       })
 
-      onTransactionSuccess(response.txHash)
+      // 显示创建成功提示
+      alert('论文创建成功！NFT已铸造到区块链。')
+      onTransactionSuccess(response.hash || response.transactionHash || 'success')
       setShowCreateForm(false)
       resetCreateForm()
 
@@ -149,13 +155,15 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
       const metadataURI = `ipfs://${metadataHash}`
 
       // 调用合约投稿
-      const response = await contractService.submitPaper({
-        paperId: submissionForm.paperId,
+      const response = await contractService.createSubmission({
+        paperTokenId: submissionForm.paperId,
         journalId: submissionForm.journalId,
         metadataURI
       })
 
-      onTransactionSuccess(response.txHash)
+      // 显示投稿成功提示
+      alert('投稿成功！交易已提交到区块链。')
+      onTransactionSuccess(response.hash || response.transactionHash || 'success')
       setShowSubmissionForm(false)
       setSubmissionForm({
         paperId: 0,
@@ -235,25 +243,54 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
     })
   }
 
-  const loadPapers = async () => {
-    // 这里应该从合约查询用户的论文列表
-    // 暂时使用模拟数据
-    setPapers([
-      {
-        id: 0,
-        title: 'Blockchain-based Academic Publishing System',
-        doi: '10.1234/blockchain.2023.001',
-        authors: ['Alice Smith', 'Bob Johnson'],
-        abstract: 'This paper presents a novel blockchain-based system for academic publishing...',
-        status: 'Created',
-        createdAt: new Date().toISOString()
+  const loadPapers = useCallback(async () => {
+    try {
+      if (!address) {
+        setPapers([])
+        return
       }
-    ])
-  }
+
+      console.log('Loading papers for address:', address)
+      
+      // 检查合约总供应量
+      try {
+        const systemStats = await queryService.getSystemStats()
+        console.log('System stats:', systemStats)
+        if (systemStats.totalPapers === '0') {
+          console.warn('合约中没有任何论文NFT，可能是合约部署问题或网络配置错误')
+        }
+      } catch (error) {
+        console.error('Failed to get system stats:', error)
+      }
+      
+      // 从合约查询用户的论文列表
+      const userPapers = await queryService.getUserPapers(address)
+      console.log('Retrieved user papers:', userPapers)
+      
+      // 转换为组件期望的格式
+      const formattedPapers = userPapers.map((paper) => ({
+        id: parseInt(paper.tokenId),
+        title: `论文 #${paper.tokenId}`, // 临时标题，实际应从元数据获取
+        abstract: '论文摘要...', // 临时摘要，实际应从元数据获取
+        authors: [paper.owner], // 临时作者，实际应从元数据获取
+        keywords: [], // 临时关键词，实际应从元数据获取
+        category: '', // 临时分类，实际应从元数据获取
+        doi: '', // 临时DOI，实际应从合约获取
+        status: '已创建',
+        createdAt: new Date().toISOString() // 修复类型错误，使用ISO字符串格式
+      }))
+      
+      console.log('Formatted papers:', formattedPapers)
+      setPapers(formattedPapers)
+    } catch (error) {
+      console.error('Error loading papers:', error)
+      setPapers([])
+    }
+  }, [address])
 
   useEffect(() => {
     loadPapers()
-  }, [address])
+  }, [address, loadPapers])
 
   return (
     <div className="space-y-6">
@@ -471,6 +508,26 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
             </button>
           </div>
 
+          {papers.length === 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-yellow-800">
+                    没有可投稿的论文
+                  </h3>
+                  <div className="mt-2 text-sm text-yellow-700">
+                    <p>您需要先创建论文才能进行投稿。请点击上方的"创建论文"按钮。</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmitPaper} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -482,8 +539,9 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
                   onChange={(e) => setSubmissionForm({ ...submissionForm, paperId: parseInt(e.target.value) })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
+                  disabled={papers.length === 0}
                 >
-                  <option value={0}>选择论文</option>
+                  <option value={0}>{papers.length === 0 ? '请先创建论文' : '选择论文'}</option>
                   {papers.map(paper => (
                     <option key={paper.id} value={paper.id}>{paper.title}</option>
                   ))}
@@ -583,10 +641,11 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || papers.length === 0}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:opacity-50"
+                title={papers.length === 0 ? '请先创建论文' : ''}
               >
-                {loading ? '投稿中...' : '提交投稿'}
+                {loading ? '投稿中...' : papers.length === 0 ? '请先创建论文' : '提交投稿'}
               </button>
             </div>
           </form>

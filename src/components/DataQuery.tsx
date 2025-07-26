@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react'
-import { createContractService } from '../services/ContractService'
+import { useState, useEffect } from 'react'
 
 interface DataQueryProps {
   address: string
@@ -66,7 +65,7 @@ export function DataQuery({ address }: DataQueryProps) {
   const [sortBy, setSortBy] = useState<string>('date')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
-  const contractService = createContractService(address)
+  // const contractService = createContractService()
 
   const statusLabels = {
     pending: '待分配',
@@ -366,20 +365,23 @@ export function DataQuery({ address }: DataQueryProps) {
            reviewer.specialties.some(specialty => specialty.toLowerCase().includes(searchTerm.toLowerCase()))
   })
 
-  const sortData = (data: any[], sortBy: string, sortOrder: 'asc' | 'desc') => {
+  const sortData = <T extends Record<string, unknown>>(data: T[], sortBy: string, sortOrder: 'asc' | 'desc') => {
     return [...data].sort((a, b) => {
-      let aValue = a[sortBy]
-      let bValue = b[sortBy]
+      let aValue: unknown = a[sortBy]
+      let bValue: unknown = b[sortBy]
       
       if (sortBy === 'submissionDate' || sortBy === 'createdDate' || sortBy === 'joinedDate') {
-        aValue = new Date(aValue).getTime()
-        bValue = new Date(bValue).getTime()
+        aValue = new Date(aValue as string | number | Date).getTime()
+        bValue = new Date(bValue as string | number | Date).getTime()
       }
       
+      const aVal = aValue as string | number
+      const bVal = bValue as string | number
+      
       if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1
+        return aVal > bVal ? 1 : -1
       } else {
-        return aValue < bValue ? 1 : -1
+        return aVal < bVal ? 1 : -1
       }
     })
   }
@@ -527,7 +529,7 @@ export function DataQuery({ address }: DataQueryProps) {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {sortData(filteredPapers, sortBy, sortOrder).map((paper) => (
+                {(sortData(filteredPapers, sortBy, sortOrder) as Paper[]).map((paper: Paper) => (
                   <tr key={paper.id}>
                     <td className="px-6 py-4">
                       <div>
@@ -547,9 +549,9 @@ export function DataQuery({ address }: DataQueryProps) {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                        statusColors[paper.status]
+                        statusColors[paper.status as keyof typeof statusColors]
                       }`}>
-                        {statusLabels[paper.status]}
+                        {statusLabels[paper.status as keyof typeof statusLabels]}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

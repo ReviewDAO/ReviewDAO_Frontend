@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { createContractService } from '../services/ContractService'
 import { ipfsService } from '../services/IPFSService'
-import { ENUMS } from '../config/contracts'
 
 interface ReviewerDashboardProps {
   address: string
-  userProfile: any
   onTransactionSuccess: (txHash: string) => void
 }
 
@@ -28,7 +26,7 @@ interface RegisterForm {
   orcid: string
 }
 
-export function ReviewerDashboard({ address, userProfile, onTransactionSuccess }: ReviewerDashboardProps) {
+export function ReviewerDashboard({ address, onTransactionSuccess }: ReviewerDashboardProps) {
   const [isRegistered, setIsRegistered] = useState(false)
   const [reviewerProfile, setReviewerProfile] = useState<ReviewerProfile | null>(null)
   const [showRegisterForm, setShowRegisterForm] = useState(false)
@@ -42,7 +40,7 @@ export function ReviewerDashboard({ address, userProfile, onTransactionSuccess }
   })
   const [newExpertise, setNewExpertise] = useState('')
 
-  const contractService = createContractService(address)
+  const contractService = createContractService()
 
   const expertiseAreas = [
     'Computer Science',

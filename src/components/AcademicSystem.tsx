@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { walletStrategy } from '../services/Wallet'
 import { JournalManager } from './JournalManager'
 import { PaperSubmission } from './PaperSubmission'
@@ -11,19 +11,20 @@ import { DataQuery } from './DataQuery'
 
 type TabType = 'journals' | 'papers' | 'reviewer' | 'reviews' | 'rewards' | 'governance' | 'admin' | 'data'
 
-interface UserProfile {
-  address: string
-  isReviewer: boolean
-  isEditor: boolean
-  journals: number[]
-}
+
 
 export function AcademicSystem() {
   const [address, setAddress] = useState<string>('')
   const [activeTab, setActiveTab] = useState<TabType>('journals')
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+
   const [loading, setLoading] = useState(false)
   const [lastTxHash, setLastTxHash] = useState<string>('')
+
+  // 初始化组件
+  useEffect(() => {
+    // 可以在这里添加初始化逻辑
+    console.log('Academic System initialized')
+  }, [])
 
   const connectWallet = async () => {
     try {
@@ -31,7 +32,7 @@ export function AcademicSystem() {
       const addresses = await walletStrategy.getAddresses()
       if (addresses.length > 0) {
         setAddress(addresses[0])
-        await loadUserProfile(addresses[0])
+
       }
     } catch (error) {
       console.error('Error connecting wallet:', error)
@@ -40,20 +41,7 @@ export function AcademicSystem() {
     }
   }
 
-  const loadUserProfile = async (userAddress: string) => {
-    try {
-      // 这里可以查询用户的角色和权限
-      // 暂时使用默认值
-      setUserProfile({
-        address: userAddress,
-        isReviewer: false,
-        isEditor: false,
-        journals: []
-      })
-    } catch (error) {
-      console.error('Error loading user profile:', error)
-    }
-  }
+
 
   const handleTransactionSuccess = (txHash: string) => {
     setLastTxHash(txHash)
@@ -148,7 +136,6 @@ export function AcademicSystem() {
             {activeTab === 'reviewer' && (
               <ReviewerDashboard
                 address={address}
-                userProfile={userProfile}
                 onTransactionSuccess={handleTransactionSuccess}
               />
             )}

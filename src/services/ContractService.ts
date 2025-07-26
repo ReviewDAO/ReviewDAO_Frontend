@@ -1,13 +1,67 @@
-import { MsgExecuteContract } from '@injectivelabs/sdk-ts'
-import { CONTRACT_ADDRESSES } from '../config/contracts'
-import { msgBroadcaster } from './MsgBroadcaster'
+import { ethers } from 'ethers'
+import { getEthereumAddress } from '@injectivelabs/sdk-ts'
+import { CONTRACT_ADDRESSES, CONTRACT_ABIS } from '../config/contracts'
 
 // 合约服务类
 export class ContractService {
-  private address: string
+  private signer: ethers.Signer | null = null
 
-  constructor(address: string) {
-    this.address = address
+  constructor() {
+    // 构造函数现在不需要参数
+  }
+
+  // 验证地址格式
+  private validateAddress(address: string): string {
+    // Check if it's an Injective bech32 address
+    if (address.startsWith('inj')) {
+      try {
+        // Convert Injective bech32 address to Ethereum hex format
+        return getEthereumAddress(address)
+      } catch {
+        throw new Error(`Invalid Injective address format: ${address}`);
+      }
+    }
+    
+    // Handle Ethereum hex addresses
+    if (!ethers.isAddress(address)) {
+      throw new Error(`Invalid address format: ${address}`)
+    }
+    return ethers.getAddress(address) // 返回校验和格式的地址
+  }
+
+  // 设置签名者
+  async setSigner() {
+    if (typeof window !== 'undefined' && window.ethereum) {
+      const browserProvider = new ethers.BrowserProvider(window.ethereum)
+      this.signer = await browserProvider.getSigner()
+    } else {
+      throw new Error('No Ethereum provider found')
+    }
+  }
+
+  // 检查用户是否有管理员权限
+  async hasAdminRole(): Promise<boolean> {
+    if (!this.signer) {
+      await this.setSigner()
+    }
+
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.JOURNAL_MANAGER,
+      CONTRACT_ABIS.JournalManager,
+      this.signer
+    )
+
+    try {
+      if (!this.signer) {
+        throw new Error('Signer not available')
+      }
+      const userAddress = await this.signer.getAddress()
+      const ADMIN_ROLE = await contract.ADMIN_ROLE()
+      return await contract.hasRole(ADMIN_ROLE, userAddress)
+    } catch (error) {
+      console.error('Error checking admin role:', error)
+      return false
+    }
   }
 
   // 创建期刊
@@ -21,303 +75,317 @@ export class ContractService {
     minReviewerTier: number
     requiredReviewers: number
   }) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.JournalManager,
-      sender: this.address,
-      msg: {
-        create_journal: {
-          name: params.name,
-          description: params.description,
-          metadata_uri: params.metadataURI,
-          chief_editor: params.chiefEditor,
-          submission_fee: params.submissionFee,
-          categories: params.categories,
-          min_reviewer_tier: params.minReviewerTier,
-          required_reviewers: params.requiredReviewers
-        }
-      }
-    })
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    // 检查用户是否有管理员权限
+    const hasAdmin = await this.hasAdminRole()
+    if (!hasAdmin) {
+      throw new Error('您没有创建期刊的权限。只有管理员可以创建期刊。')
+    }
+
+    // 验证主编地址格式
+    const validatedChiefEditor = this.validateAddress(params.chiefEditor)
+
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.JOURNAL_MANAGER,
+      CONTRACT_ABIS.JournalManager,
+      this.signer
+    )
+
+    const tx = await contract.createJournal(
+      params.name,
+      params.description,
+      params.metadataURI,
+      validatedChiefEditor,
+      params.submissionFee,
+      params.categories,
+      params.minReviewerTier,
+      params.requiredReviewers
+    )
+    return await tx.wait()
   }
 
   // 注册审稿人
   async registerAsReviewer(metadataURI: string) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.ReviewerDAO,
-      sender: this.address,
-      msg: {
-        register_as_reviewer: {
-          metadata_uri: metadataURI
-        }
-      }
-    })
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.REVIEWER_DAO,
+      CONTRACT_ABIS.ReviewerDAO,
+      this.signer
+    )
+
+    const tx = await contract.registerAsReviewer(metadataURI)
+    return await tx.wait()
   }
 
-  // 创建论文NFT
+  // 创建论文
   async createPaper(params: {
-    ipfsHash: string
-    doi: string
+    title: string
+    abstract: string
     metadataURI: string
+    journalId: number
+    ipfsHash: string
+    doi?: string
   }) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.PaperNFT,
-      sender: this.address,
-      msg: {
-        create_paper_item: {
-          ipfs_hash: params.ipfsHash,
-          doi: params.doi,
-          metadata_uri: params.metadataURI
-        }
-      }
-    })
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.PAPER_NFT,
+      CONTRACT_ABIS.PaperNFT,
+      this.signer
+    )
+
+    const tx = await contract.createPaperItem(
+      params.ipfsHash,
+      params.doi || '',
+      params.metadataURI
+    )
+    return await tx.wait()
   }
 
-  // 投稿论文
-  async submitPaper(params: {
-    paperId: number
+  // 创建投稿
+  async createSubmission(params: {
     journalId: number
+    paperTokenId: number
     metadataURI: string
   }) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.ReviewProcess,
-      sender: this.address,
-      msg: {
-        create_submission: {
-          paper_id: params.paperId,
-          journal_id: params.journalId,
-          metadata_uri: params.metadataURI
-        }
-      }
-    })
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.REVIEW_PROCESS,
+      CONTRACT_ABIS.ReviewProcess,
+      this.signer
+    )
+
+    const tx = await contract.createSubmission(
+      params.paperTokenId,
+      params.journalId,
+      params.metadataURI
+    )
+    return await tx.wait()
   }
 
   // 分配审稿人
-  async assignReviewer(submissionId: number, reviewerAddress: string) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.JournalManager,
-      sender: this.address,
-      msg: {
-        assign_reviewer: {
-          submission_id: submissionId,
-          reviewer: reviewerAddress
-        }
-      }
-    })
+  async assignReviewer(params: {
+    submissionId: number
+    reviewerAddress: string
+  }) {
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    // 验证审稿人地址格式
+    const validatedReviewerAddress = this.validateAddress(params.reviewerAddress)
+
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.REVIEW_PROCESS,
+      CONTRACT_ABIS.ReviewProcess,
+      this.signer
+    )
+
+    const tx = await contract.assignReviewer(params.submissionId, validatedReviewerAddress)
+    return await tx.wait()
   }
 
   // 提交审稿意见
-  async submitReview(params: {
-    submissionId: number
-    decision: number
-    commentsHash: string
+  async submitReview(submissionId: number, decision: number, commentsHash: string) {
+    if (!this.signer) {
+      await this.setSigner()
+    }
+
+    const contract = new ethers.Contract(
+       CONTRACT_ADDRESSES.REVIEW_PROCESS,
+       CONTRACT_ABIS.ReviewProcess,
+       this.signer
+     )
+
+    const tx = await contract.submitReview(submissionId, decision, commentsHash)
+    return await tx.wait()
+  }
+
+  // 发布论文
+  async publishPaper(submissionId: number) {
+    if (!this.signer) {
+      await this.setSigner()
+    }
+
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.REVIEW_PROCESS,
+      CONTRACT_ABIS.ReviewProcess,
+      this.signer
+    )
+
+    const tx = await contract.publishPaper(submissionId)
+    return await tx.wait()
+  }
+
+  // 添加编辑
+  async addEditor(params: {
+    journalId: number
+    editorAddress: string
   }) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.ReviewProcess,
-      sender: this.address,
-      msg: {
-        submit_review: {
-          submission_id: params.submissionId,
-          decision: params.decision,
-          comments_hash: params.commentsHash
-        }
-      }
-    })
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    // 验证编辑地址格式
+    const validatedEditorAddress = this.validateAddress(params.editorAddress)
+
+    const contract = new ethers.Contract(
+       CONTRACT_ADDRESSES.JOURNAL_MANAGER,
+       CONTRACT_ABIS.JournalManager,
+       this.signer
+     )
+
+    const tx = await contract.addEditor(params.journalId, validatedEditorAddress)
+    return await tx.wait()
   }
 
-  // 发表论文
-  async publishPaper(submissionId: number, volumeInfo: string) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.JournalManager,
-      sender: this.address,
-      msg: {
-        publish_paper: {
-          submission_id: submissionId,
-          volume_info: volumeInfo
-        }
-      }
-    })
+  // 分发审稿奖励
+  async distributeReviewReward(submissionId: number, reviewerAddress: string, amount: string) {
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
-  }
+    // 验证审稿人地址格式
+    const validatedReviewerAddress = this.validateAddress(reviewerAddress)
 
-  // 添加期刊编辑
-  async addEditor(journalId: number, editorAddress: string) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.JournalManager,
-      sender: this.address,
-      msg: {
-        add_editor: {
-          journal_id: journalId,
-          editor: editorAddress
-        }
-      }
-    })
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.REVIEW_PROCESS,
+      CONTRACT_ABIS.ReviewProcess,
+      this.signer
+    )
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
-  }
-
-  // 分配审稿奖励
-  async distributeReviewReward(params: {
-    reviewId: number
-    submissionId: number
-    qualityScore: number
-    timelyCompletion: boolean
-  }) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.JournalManager,
-      sender: this.address,
-      msg: {
-        distribute_review_reward: {
-          review_id: params.reviewId,
-          submission_id: params.submissionId,
-          quality_score: params.qualityScore,
-          timely_completion: params.timelyCompletion
-        }
-      }
-    })
-
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    const tx = await contract.distributeReward(validatedReviewerAddress, submissionId, amount)
+    return await tx.wait()
   }
 
   // 更新审稿人等级
   async updateReviewerTier(reviewerAddress: string, tier: number) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.ReviewerDAO,
-      sender: this.address,
-      msg: {
-        update_reviewer_tier: {
-          reviewer: reviewerAddress,
-          tier: tier
-        }
-      }
-    })
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    // 验证审稿人地址格式
+    const validatedReviewerAddress = this.validateAddress(reviewerAddress)
+
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.REVIEWER_DAO,
+      CONTRACT_ABIS.ReviewerDAO,
+      this.signer
+    )
+
+    const tx = await contract.updateReviewerTier(validatedReviewerAddress, tier)
+    return await tx.wait()
   }
 
   // 更新审稿人声誉
   async updateReviewerReputation(reviewerAddress: string, reputationChange: number) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.ReviewerDAO,
-      sender: this.address,
-      msg: {
-        update_reviewer_reputation: {
-          reviewer: reviewerAddress,
-          reputation_change: reputationChange
-        }
-      }
-    })
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    // 验证审稿人地址格式
+    const validatedReviewerAddress = this.validateAddress(reviewerAddress)
+
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.REVIEWER_DAO,
+      CONTRACT_ABIS.ReviewerDAO,
+      this.signer
+    )
+
+    const tx = await contract.updateReviewerReputation(validatedReviewerAddress, reputationChange)
+    return await tx.wait()
   }
 
-  // 创建DAO提案
+  // DAO 治理相关方法
+
+  // 创建提案
   async createProposal(params: {
     proposalType: number
     description: string
     data: string
     votingDuration: number
   }) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.ReviewerDAO,
-      sender: this.address,
-      msg: {
-        create_proposal: {
-          proposal_type: params.proposalType,
-          description: params.description,
-          data: params.data,
-          voting_duration: params.votingDuration
-        }
-      }
-    })
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.REVIEWER_DAO,
+      CONTRACT_ABIS.ReviewerDAO,
+      this.signer
+    )
+
+    // 将数据转换为字节格式
+    const dataBytes = ethers.toUtf8Bytes(params.data)
+
+    const tx = await contract.createProposal(
+      params.proposalType,
+      params.description,
+      dataBytes,
+      params.votingDuration
+    )
+    return await tx.wait()
   }
 
-  // DAO投票
-  async vote(proposalId: number, voteType: number) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.ReviewerDAO,
-      sender: this.address,
-      msg: {
-        vote: {
-          proposal_id: proposalId,
-          vote_type: voteType
-        }
-      }
-    })
+  // 对提案投票
+  async voteOnProposal(proposalId: number, support: boolean) {
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.REVIEWER_DAO,
+      CONTRACT_ABIS.ReviewerDAO,
+      this.signer
+    )
+
+    const tx = await contract.voteOnProposal(proposalId, support)
+    return await tx.wait()
   }
 
   // 执行提案
   async executeProposal(proposalId: number) {
-    const msg = MsgExecuteContract.fromJSON({
-      contractAddress: CONTRACT_ADDRESSES.ReviewerDAO,
-      sender: this.address,
-      msg: {
-        execute_proposal: {
-          proposal_id: proposalId
-        }
-      }
-    })
+    if (!this.signer) {
+      await this.setSigner()
+    }
 
-    return await msgBroadcaster.broadcast({
-      msgs: [msg],
-      injectiveAddress: this.address
-    })
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.REVIEWER_DAO,
+      CONTRACT_ABIS.ReviewerDAO,
+      this.signer
+    )
+
+    const tx = await contract.executeProposal(proposalId)
+    return await tx.wait()
+  }
+
+  // 结束提案投票
+  async finalizeProposal(proposalId: number) {
+    if (!this.signer) {
+      await this.setSigner()
+    }
+
+    const contract = new ethers.Contract(
+      CONTRACT_ADDRESSES.REVIEWER_DAO,
+      CONTRACT_ABIS.ReviewerDAO,
+      this.signer
+    )
+
+    const tx = await contract.finalizeProposal(proposalId)
+    return await tx.wait()
   }
 }
 
 // 导出便捷函数
-export const createContractService = (address: string) => new ContractService(address)
+export const createContractService = () => new ContractService()

@@ -8,6 +8,11 @@ export class IPFSService {
   constructor() {
     this.apiKey = IPFS_CONFIG.apiKey
     this.gateway = IPFS_CONFIG.gateway
+    
+    // 检查API密钥是否配置
+    if (!this.apiKey || this.apiKey === 'your-pinata-api-key-here') {
+      console.warn('IPFS API key not configured. Please set VITE_PINATA_API_KEY in your .env file.')
+    }
   }
 
   // 上传文件到IPFS
@@ -33,26 +38,38 @@ export class IPFSService {
 
   // 上传JSON数据到IPFS
   async uploadJSON(data: Record<string, unknown>): Promise<string> {
-    const response = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`
-      },
-      body: JSON.stringify({
-        pinataContent: data,
-        pinataMetadata: {
-          name: `metadata-${Date.now()}`
-        }
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('Failed to upload JSON to IPFS')
+    // 检查API密钥
+    if (!this.apiKey || this.apiKey === 'your-pinata-api-key-here') {
+      throw new Error('IPFS API key not configured. Please set VITE_PINATA_API_KEY in your .env file.')
     }
 
-    const result = await response.json()
-    return result.IpfsHash
+    try {
+      const response = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          pinataContent: data,
+          pinataMetadata: {
+            name: `metadata-${Date.now()}`
+          }
+        })
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('IPFS upload failed:', response.status, errorText)
+        throw new Error(`Failed to upload JSON to IPFS: ${response.status} ${response.statusText}`)
+      }
+
+      const result = await response.json()
+      return result.IpfsHash
+    } catch (error) {
+      console.error('IPFS upload error:', error)
+      throw error
+    }
   }
 
   // 从IPFS获取数据

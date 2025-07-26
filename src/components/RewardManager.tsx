@@ -94,15 +94,18 @@ export function RewardManager({ address, onTransactionSuccess }: RewardManagerPr
     try {
       setLoading(true)
 
-      const response = await contractService.distributeReviewReward({
-        reviewId: rewardForm.reviewId,
-        submissionId: rewardForm.submissionId,
-        qualityScore: rewardForm.qualityScore,
-        timelyCompletion: rewardForm.timelyCompletion
-      })
+      // 计算奖励金额
+      const rewardAmount = calculateRewardAmount(rewardForm.qualityScore, rewardForm.timelyCompletion)
+      
+      // 调用合约分发奖励，传递正确的参数
+      const response = await contractService.distributeReviewReward(
+        rewardForm.submissionId,
+        selectedReview.reviewerId,
+        rewardAmount.toString()
+      )
 
-      if (response.txHash) {
-        onTransactionSuccess(response.txHash)
+      if (response.transactionHash) {
+        onTransactionSuccess(response.transactionHash)
         setShowRewardForm(false)
         setSelectedReview(null)
         await loadReviews() // 重新加载数据
