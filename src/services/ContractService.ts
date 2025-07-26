@@ -265,6 +265,14 @@ export class ContractService {
       await this.setSigner()
     }
 
+    // 验证参数
+    if (!params.reviewerAddress) {
+      throw new Error('Reviewer address is required')
+    }
+    if (!params.submissionId || params.submissionId <= 0) {
+      throw new Error('Valid submission ID is required')
+    }
+
     // 验证审稿人地址格式
     const validatedReviewerAddress = this.validateAddress(params.reviewerAddress)
 

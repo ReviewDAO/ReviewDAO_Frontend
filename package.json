@@ -1,13 +1,20 @@
 {
-  "name": "injective-dex-dapp",
+  "name": "reviewdao-frontend",
+  "description": "去中心化学术论文同行评议系统前端应用",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "keywords": ["blockchain", "academic", "peer-review", "dao", "injective", "react", "typescript"],
+  "author": "ReviewDAO Team",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "vercel-build": "npm run build",
+    "check-env": "node check-env.js",
+    "deploy": "npm run check-env && vercel --prod"
   },
   "dependencies": {
     "@bangjelkoski/vite-plugin-node-polyfills": "^0.0.2",

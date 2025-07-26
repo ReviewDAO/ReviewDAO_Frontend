@@ -105,8 +105,27 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
     try {
       setIsLoading(true)
       
+      if (!address) {
+        alert('请先连接钱包')
+        return
+      }
+      
+      // 验证submission.id是否有效
+      if (!submission.id || submission.id === '' || submission.id === 'undefined') {
+        alert('投稿ID无效，请刷新页面重试')
+        return
+      }
+      
+      const submissionIdNum = parseInt(submission.id)
+      if (isNaN(submissionIdNum) || submissionIdNum < 0) {
+        alert('投稿ID格式错误，请刷新页面重试')
+        return
+      }
+      
+      console.log('分配审稿人 - 投稿ID:', submissionIdNum, '审稿人地址:', address)
+      
       await contractService.assignReviewer({
-        submissionId: parseInt(submission.id),
+        submissionId: submissionIdNum,
         reviewerAddress: address
       })
       
@@ -143,6 +162,18 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
       setIsSubmitting(true)
       setError(null)
 
+      // 验证selectedSubmission.id是否有效
+      if (!selectedSubmission.id || selectedSubmission.id === '' || selectedSubmission.id === 'undefined') {
+        setError('投稿ID无效，请刷新页面重试')
+        return
+      }
+      
+      const submissionIdNum = parseInt(selectedSubmission.id)
+      if (isNaN(submissionIdNum) || submissionIdNum < 0) {
+        setError('投稿ID格式错误，请刷新页面重试')
+        return
+      }
+
       // 创建审稿意见元数据
       const reviewMetadata = {
         summary: reviewForm.comments,
@@ -155,9 +186,11 @@ export function ReviewProcess({ address, onTransactionSuccess }: ReviewProcessPr
       const metadataHash = await ipfsService.createReviewMetadata(reviewMetadata)
       const metadataURI = `ipfs://${metadataHash}`
 
+      console.log('提交审稿意见 - 投稿ID:', submissionIdNum)
+
       // 调用合约提交审稿意见
       const response = await contractService.submitReview(
-        parseInt(selectedSubmission.id),
+        submissionIdNum,
         reviewForm.decision,
         metadataURI
       )

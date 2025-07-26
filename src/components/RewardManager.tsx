@@ -51,7 +51,7 @@ export function RewardManager({ address, onTransactionSuccess }: RewardManagerPr
         {
           id: 1,
           submissionId: 1,
-          reviewerId: '0x1234...5678',
+          reviewerId: '0x1234567890123456789012345678901234567890',
           reviewerName: 'Dr. Alice Smith',
           paperTitle: 'Deep Learning Approaches for Blockchain Consensus',
           journalName: 'Blockchain Research Journal',
@@ -61,7 +61,7 @@ export function RewardManager({ address, onTransactionSuccess }: RewardManagerPr
         {
           id: 2,
           submissionId: 2,
-          reviewerId: '0x2345...6789',
+          reviewerId: '0x2345678901234567890123456789012345678901',
           reviewerName: 'Prof. Bob Johnson',
           paperTitle: 'AI-Powered Smart Contract Security Analysis',
           journalName: 'AI & Machine Learning Review',
@@ -74,7 +74,7 @@ export function RewardManager({ address, onTransactionSuccess }: RewardManagerPr
         {
           id: 3,
           submissionId: 3,
-          reviewerId: '0x3456...7890',
+          reviewerId: '0x3456789012345678901234567890123456789012',
           reviewerName: 'Dr. Carol Wilson',
           paperTitle: 'Decentralized Identity Management Systems',
           journalName: 'Computer Science Quarterly',
@@ -218,7 +218,7 @@ export function RewardManager({ address, onTransactionSuccess }: RewardManagerPr
                     </div>
                     <div>
                       <span className="font-medium">审稿人地址：</span>
-                      <span className="font-mono text-xs">{review.reviewerId}</span>
+                      <span className="font-mono text-xs">{review.reviewerId.slice(0, 6)}...{review.reviewerId.slice(-4)}</span>
                     </div>
                   </div>
                   

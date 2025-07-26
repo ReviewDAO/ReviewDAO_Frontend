@@ -51,7 +51,13 @@ export const CONTRACT_ABIS = {
     'function updateReviewerTier(address reviewer, uint8 newTier) external',
     'function distributeReward(address reviewer, uint256 reviewId, uint256 amount) external',
     'function reviewRewards(uint256 reviewId, address reviewer) external view returns (uint256)',
-    'function balanceOf(address account) external view returns (uint256)'
+    'function balanceOf(address account) external view returns (uint256)',
+    'function createProposal(uint8 proposalType, string description, bytes data, uint256 votingDuration) external returns (uint256)',
+    'function voteOnProposal(uint256 proposalId, bool support) external',
+    'function executeProposal(uint256 proposalId) external',
+    'function finalizeProposal(uint256 proposalId) external',
+    'function proposals(uint256 proposalId) external view returns (tuple(uint256 id, address proposer, uint8 proposalType, string description, bytes data, uint256 startTime, uint256 endTime, uint256 forVotes, uint256 againstVotes, uint8 status))',
+    'function getProposalCount() external view returns (uint256)'
   ],
   PaperNFT: [
     'function createPaperItem(string ipfsHash, string doi, string metadataURI) external',

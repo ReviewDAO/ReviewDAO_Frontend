@@ -1,0 +1,188 @@
+# Vercel 部署指南
+
+本指南将帮助您将 ReviewDAO 前端项目部署到 Vercel 平台。
+
+## 前置条件
+
+1. **GitHub 账户**：确保您的项目已推送到 GitHub 仓库
+2. **Vercel 账户**：在 [vercel.com](https://vercel.com) 注册账户
+3. **环境变量**：准备好必要的 API 密钥
+
+## 部署步骤
+
+### 方法一：通过 Vercel Dashboard 部署
+
+1. **登录 Vercel**
+   - 访问 [vercel.com](https://vercel.com)
+   - 使用 GitHub 账户登录
+
+2. **导入项目**
+   - 点击 "New Project"
+   - 选择您的 GitHub 仓库
+   - 选择 `ReviewDAO_Frontend` 目录作为根目录
+
+3. **配置项目设置**
+   - **Framework Preset**: Vite
+   - **Root Directory**: `ReviewDAO_Frontend`
+   - **Build Command**: `npm run vercel-build`
+   - **Output Directory**: `dist`
+   - **Install Command**: `npm install`
+
+4. **设置环境变量**
+   在 Vercel Dashboard 中添加以下环境变量：
+   ```
+   VITE_PINATA_API_KEY=your_pinata_api_key_here
+   NODE_ENV=production
+   ```
+
+5. **部署**
+   - 点击 "Deploy" 按钮
+   - 等待构建完成
+
+### 方法二：通过 Vercel CLI 部署
+
+1. **安装 Vercel CLI**
+   ```bash
+   npm install -g vercel
+   ```
+
+2. **登录 Vercel**
+   ```bash
+   vercel login
+   ```
+
+3. **进入项目目录**
+   ```bash
+   cd ReviewDAO_Frontend
+   ```
+
+4. **初始化项目**
+   ```bash
+   vercel
+   ```
+   按照提示配置项目设置
+
+5. **设置环境变量**
+   ```bash
+   vercel env add VITE_PINATA_API_KEY
+   vercel env add NODE_ENV
+   ```
+
+6. **部署到生产环境**
+   ```bash
+   vercel --prod
+   ```
+
+## 环境变量配置
+
+### 必需的环境变量
+
+| 变量名 | 描述 | 示例值 |
+|--------|------|--------|
+| `VITE_PINATA_API_KEY` | Pinata IPFS API 密钥 | `your_pinata_api_key` |
+| `NODE_ENV` | 环境类型 | `production` |
+
+### 可选的环境变量
+
+| 变量名 | 描述 | 示例值 |
+|--------|------|--------|
+| `VITE_QUICKNODE_ENDPOINT` | QuickNode RPC 端点 | `https://...` |
+| `VITE_QUICKNODE_API_KEY` | QuickNode API 密钥 | `your_api_key` |
+
+## 项目配置文件
+
+### vercel.json
+项目已包含 `vercel.json` 配置文件，包含以下设置：
+- SPA 路由支持
+- 安全头设置
+- 静态资源缓存
+- 构建配置
+
+### package.json
+已添加 `vercel-build` 脚本用于 Vercel 部署。
+
+## 部署后验证
+
+1. **访问部署的网站**
+   - Vercel 会提供一个 `.vercel.app` 域名
+   - 检查网站是否正常加载
+
+2. **测试核心功能**
+   - 钱包连接功能
+   - 数据加载
+   - 页面导航
+
+3. **检查控制台**
+   - 打开浏览器开发者工具
+   - 确认没有错误信息
+
+## 自定义域名（可选）
+
+1. **在 Vercel Dashboard 中**
+   - 进入项目设置
+   - 点击 "Domains"
+   - 添加您的自定义域名
+
+2. **配置 DNS**
+   - 在您的域名提供商处
+   - 添加 CNAME 记录指向 Vercel
+
+## 常见问题
+
+### 构建失败
+- 检查 Node.js 版本兼容性
+- 确认所有依赖都已正确安装
+- 检查 TypeScript 编译错误
+
+### 环境变量未生效
+- 确认变量名以 `VITE_` 开头
+- 重新部署项目
+- 检查变量值是否正确
+
+### 路由问题
+- 确认 `vercel.json` 中的路由配置
+- 检查 React Router 配置
+
+### IPFS 连接问题
+- 验证 Pinata API 密钥
+- 检查网络连接
+- 确认 CORS 设置
+
+## 监控和维护
+
+1. **性能监控**
+   - 使用 Vercel Analytics
+   - 监控页面加载时间
+
+2. **错误追踪**
+   - 检查 Vercel 函数日志
+   - 监控客户端错误
+
+3. **自动部署**
+   - 配置 GitHub 集成
+   - 每次推送自动部署
+
+## 安全考虑
+
+1. **环境变量安全**
+   - 不要在客户端代码中暴露敏感信息
+   - 使用 `VITE_` 前缀的变量会被打包到客户端
+
+2. **API 密钥管理**
+   - 定期轮换 API 密钥
+   - 限制 API 密钥权限
+
+3. **HTTPS**
+   - Vercel 自动提供 HTTPS
+   - 确保所有 API 调用使用 HTTPS
+
+## 支持
+
+如果遇到部署问题，可以：
+1. 查看 [Vercel 文档](https://vercel.com/docs)
+2. 检查项目的构建日志
+3. 联系技术支持团队
+
+---
+
+**注意**：部署前请确保所有敏感信息（如私钥、API 密钥）都已正确配置为环境变量，不要直接写在代码中。
