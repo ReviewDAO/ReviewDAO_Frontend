@@ -231,6 +231,28 @@ VITE_QUICKNODE_API_KEY=your_quicknode_api_key
 - `vercel.json` - Vercel 部署配置
 - `deploy.sh` / `deploy.bat` - 自动部署脚本
 - `check-env.js` - 环境变量检查脚本
+- `troubleshoot-deployment.js` - 部署故障排除脚本
+- `.nvmrc` - Node.js 版本指定
+
+### 🔧 部署故障排除
+
+如果遇到部署问题，可以使用以下工具进行诊断：
+
+```bash
+# 运行故障排除脚本
+npm run troubleshoot
+
+# 清理并重新安装依赖
+npm run clean
+
+# 检查环境变量配置
+npm run check-env
+```
+
+**常见问题解决：**
+- **混合包管理器警告**: 项目已配置使用 npm，删除了 package-lock.json
+- **Peer dependency 警告**: 已添加 tslib 依赖，警告可安全忽略
+- **构建失败**: 确保使用 Node.js 18，运行 `npm run clean` 清理缓存
 
 详细部署指南请参考：[VERCEL_DEPLOYMENT_GUIDE.md](../VERCEL_DEPLOYMENT_GUIDE.md)
 

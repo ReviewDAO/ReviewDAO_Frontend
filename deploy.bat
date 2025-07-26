@@ -38,19 +38,46 @@ if errorlevel 1 (
     )
 )
 
-REM 检查环境变量文件
-if not exist ".env" (
-    echo ⚠️  未找到 .env 文件
-    echo 📋 请根据 .env.example 创建 .env 文件并配置必要的环境变量
-    if exist ".env.example" (
-        echo 📄 复制示例文件...
-        copy ".env.example" ".env"
+REM 清理可能的包管理器冲突
+if exist "package-lock.json" (
+    echo 🧹 清理包管理器冲突...
+    del "package-lock.json"
+    echo ✅ 已删除 package-lock.json
+)
+
+REM 运行故障排除检查
+echo 🔍 运行部署前检查...
+node troubleshoot-deployment.js
+if errorlevel 1 (
+    echo ⚠️  发现潜在问题，请查看上述检查结果
+    echo 💡 您可以选择继续部署或先解决问题
+    set /p continue="是否继续部署？(y/N): "
+    if /i not "!continue!"=="y" (
+        echo 🛑 部署已取消
+        pause
+        exit /b 1
     )
-    echo ✏️  请编辑 .env 文件并添加您的 API 密钥
+)
+
+REM 检查环境变量
+echo 🔑 检查环境变量配置...
+node check-env.js
+if errorlevel 1 (
+    echo ❌ 环境变量检查失败
+    echo 📋 请确保配置了必要的环境变量
     echo 🔑 需要配置的变量:
     echo    - VITE_PINATA_API_KEY (Pinata IPFS API 密钥)
+    echo    - NODE_ENV (建议设置为 production)
     echo.
+    if not exist ".env" (
+        if exist ".env.example" (
+            echo 📄 复制示例文件...
+            copy ".env.example" ".env"
+            echo ✏️  请编辑 .env 文件并添加您的 API 密钥
+        )
+    )
     pause
+    exit /b 1
 )
 
 REM 安装依赖

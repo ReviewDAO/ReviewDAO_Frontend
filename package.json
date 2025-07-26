@@ -14,7 +14,10 @@
     "preview": "vite preview",
     "vercel-build": "npm run build",
     "check-env": "node check-env.js",
-    "deploy": "npm run check-env && vercel --prod"
+    "deploy": "npm run check-env && vercel --prod",
+    "troubleshoot": "node troubleshoot-deployment.js",
+    "clean": "rm -rf node_modules dist && npm install",
+    "prebuild": "npm run check-env"
   },
   "dependencies": {
     "@bangjelkoski/vite-plugin-node-polyfills": "^0.0.2",
@@ -26,7 +29,8 @@
     "ethers": "^6.15.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zustand": "^5.0.3"
+    "zustand": "^5.0.3",
+    "tslib": "^2.6.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.22.0",
