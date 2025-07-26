@@ -82,7 +82,8 @@ export function PaperSubmission({ address, onTransactionSuccess }: PaperSubmissi
 
   const handleCreatePaper = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!createForm.title || !createForm.abstract || createForm.authors.length === 0) {
+    if (!createForm.title || !createForm.abstract || createForm.authors.length) {
+    // if (!createForm.title  0) {
       alert('请填写论文标题、摘要和作者信息')
       return
     }
